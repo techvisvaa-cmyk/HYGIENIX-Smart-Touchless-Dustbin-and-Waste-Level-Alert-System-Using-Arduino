@@ -1,0 +1,173 @@
+#include <Servo.h>
+
+Servo lidServo;
+
+// ---------------- PIN DEFINITIONS ----------------
+
+// Ultrasonic 1 - Hand detection
+const int TRIG1 = 2;
+const int ECHO1 = 3;
+
+// Ultrasonic 2 - Garbage / Full detection
+const int TRIG2 = 4;
+const int ECHO2 = 5;
+
+// LED
+const int LED_PIN = 6;
+
+// Buzzer
+const int BUZZER_PIN = 10;
+
+// Servo
+const int SERVO_PIN = 9;
+
+
+// ---------------- SETTINGS ----------------
+
+const int HAND_DISTANCE = 15;       // cm
+const int GARBAGE_DISTANCE = 10;    // cm
+
+const int OPEN_ANGLE = 90;
+const int CLOSE_ANGLE = 0;
+
+
+// ---------------- SETUP ----------------
+
+void setup() {
+
+  Serial.begin(9600);
+
+  // Ultrasonic 1
+  pinMode(TRIG1, OUTPUT);
+  pinMode(ECHO1, INPUT);
+
+  // Ultrasonic 2
+  pinMode(TRIG2, OUTPUT);
+  pinMode(ECHO2, INPUT);
+
+  // LED
+  pinMode(LED_PIN, OUTPUT);
+
+  // Buzzer
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  // Servo
+  lidServo.attach(SERVO_PIN);
+
+  // Start with lid closed
+  lidServo.write(CLOSE_ANGLE);
+
+  // Start outputs OFF
+  digitalWrite(LED_PIN, LOW);
+  digitalWrite(BUZZER_PIN, LOW);
+
+  delay(500);
+}
+
+
+// ---------------- ULTRASONIC FUNCTION ----------------
+
+long getDistance(int trigPin, int echoPin) {
+
+  // Make sure trigger is LOW
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  // Send 10 microsecond pulse
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Read echo
+  long duration = pulseIn(echoPin, HIGH, 30000);
+
+  // If no echo
+  if (duration == 0) {
+    return 999;
+  }
+
+  // Calculate distance
+  long distance = duration * 0.0343 / 2;
+
+  return distance;
+}
+
+
+// ---------------- MAIN LOOP ----------------
+
+void loop() {
+
+  // Read hand sensor
+  long handDistance = getDistance(TRIG1, ECHO1);
+
+  delay(50);
+
+  // Read garbage sensor
+  long garbageDistance = getDistance(TRIG2, ECHO2);
+
+
+  // ---------------- SERIAL OUTPUT ----------------
+
+  Serial.print("Hand Sensor: ");
+  Serial.print(handDistance);
+  Serial.print(" cm");
+
+  Serial.print("   Garbage Sensor: ");
+  Serial.print(garbageDistance);
+  Serial.println(" cm");
+
+
+  // ------------------------------------------------
+  // ULTRASONIC 1 → SERVO
+  // ------------------------------------------------
+
+  if (handDistance <= HAND_DISTANCE) {
+
+    Serial.println("Hand detected! Opening lid...");
+
+    lidServo.write(OPEN_ANGLE);
+
+    delay(3000);
+
+    Serial.println("Closing lid...");
+
+    lidServo.write(CLOSE_ANGLE);
+
+    delay(500);
+  }
+
+
+  // ------------------------------------------------
+  // ULTRASONIC 2 → FULL DUSTBIN ALERT
+  // ------------------------------------------------
+
+  if (garbageDistance <= GARBAGE_DISTANCE) {
+
+    Serial.println("DUSTBIN FULL! BUZZER ON!");
+
+    // LED ON
+    digitalWrite(LED_PIN, HIGH);
+
+    // Buzzer ON
+    digitalWrite(BUZZER_PIN, HIGH);
+
+    delay(500);
+
+    // LED OFF
+    digitalWrite(LED_PIN, LOW);
+
+    // Buzzer OFF
+    digitalWrite(BUZZER_PIN, LOW);
+
+    delay(500);
+  }
+
+  else {
+
+    // Dustbin not full
+    digitalWrite(LED_PIN, LOW);
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+
+  delay(100);
+}
